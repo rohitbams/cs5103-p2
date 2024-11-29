@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Numbers API Game</title>
+    <style>
+        #main {
+            display: flex;
+            flex-direction: column;
+            outline: auto;
+            align-items: center;
+        }
+
+        .start-game-button {
+            width: fit-content;
+            height: 60px;
+            background-color: rgb(255, 214, 165);
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .start-game-button:hover {
+            background-color: rgb(231, 185, 128);;
+        }
+        .start-game-button:active {
+            background-color: bisque
+        }
+        .game-container {
+            margin: 20px;
+        }
+
+        .alphabet-container, .gameStarted {
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            max-width: 600px;
+        }
+
+        .submit-button {
+            padding: 10px;
+            max-width: fit-content;
+            height: auto;
+        }
+
+        .letter-btn {
+            padding: 10px;
+            width: 40px;
+            cursor: pointer;
+        }
+
+        .letter-btn.guessed {
+            background-color: #ddd;
+            cursor: not-allowed;
+        }
+
+        .fact {
+            font-size: 1.2em;
+            margin: 20px 0;
+            letter-spacing: 2px;
+        }
+
+        .guess-container {
+            margin: 20px 0;
+            display: grid;
+            gap: 10px;
+        }
+
+        .guess-input {
+            margin: 5px 0;
+            padding: 5px;
+            width: 570px;
+        }
+
+        <!---->.scoreboard table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        .scoreboard td,
+        .scoreboard th {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="main"> <h1>Welcome to Quizzical!</h1>
+        <div class="game-container">
+            <button class="start-game-button" v-if="!gameStarted || gameEnded" v-on:click="fetchData">{{ gameEnded ? 'Play Again' : 'Start Game'
+                }}</button>
+            <!-- Add this near the top of the game container, after the Start Game button -->
+            <div v-if="gameStarted">
+                <h3>Current Score: {{ currentScore }}</h3>
+
+                <div v-if="gameStarted">
+                    <h3>Hidden Fact:</h3>
+                    <p class="fact">{{ maskedFact }}</p>
+
+                    <!-- Alphabet buttons - disabled when game is ended -->
+                    <div v-if="!gameEnded" class="alphabet-container">
+                        <button v-for="letter in alphabet" :key="letter" v-on:click="makeGuess(letter)"
+                            :disabled="guessedLetters.includes(letter)" class="letter-btn"
+                            :class="{ guessed: guessedLetters.includes(letter) }">
+                            {{ letter.toUpperCase() }}
+                        </button>
+                    </div>
+
+                    <!-- Answer submission section - hidden when game is ended -->
+                    <div v-if="!gameEnded" class="guess-container">
+                        <h3>Submit your answer:</h3>
+                        <input type="text" v-model="phraseGuess" placeholder="Enter the full phrase"
+                            class="guess-input">
+                        <input type="number" v-model="numberGuess" placeholder="Enter the number" class="guess-input">
+                        <button class="submit-button" v-on:click="submitAnswer">Submit Final Answer</button>
+                    </div>
+
+                    <!-- Results display -->
+                    <div v-if="gameEnded" class="results-container">
+                        <h2 class="game-over">Play Again!</h2>
+                        <h3>Your Results:</h3>
+                        <p>Your phrase guess: <span :class="phraseCorrect ? 'correct' : 'incorrect'">{{ phraseGuess
+                                }}</span></p>
+                        <p>Correct phrase: <span class="correct">{{ data.text }}</span></p>
+                        <p>Your number guess: <span :class="numberCorrect ? 'correct' : 'incorrect'">{{ numberGuess
+                                }}</span></p>
+                        <p>Correct number: <span class="correct">{{ data.number }}</span></p>
+                        <div class="game-over">
+                            <p>You got:</p>
+                            <ul>
+                                <li>Phrase: {{ phraseCorrect ? "✓ Correct!" : "✗ Incorrect" }}</li>
+                                <li>Number: {{ numberCorrect ? "✓ Correct!" : "✗ Incorrect" }}</li>
+                            </ul>
+                            <p>Final Score: {{ currentScore }}</p>
+
+                            <!-- Scoreboard -->
+                            <div class="scoreboard">
+                                <h3>Previous Scores</h3>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th
+                                                v-on:click="sortKey = 'score'; sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'">
+                                                Score {{ sortKey === 'score' ? (sortDirection === 'asc' ? '↑' : '↓') :
+                                                '' }}
+                                            </th>
+                                            <th
+                                                v-on:click="sortKey = 'number'; sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'">
+                                                Number {{ sortKey === 'number' ? (sortDirection === 'asc' ? '↑' : '↓') :
+                                                '' }}
+                                            </th>
+                                            <th
+                                                v-on:click="sortKey = 'phrase'; sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'">
+                                                Phrase {{ sortKey === 'phrase' ? (sortDirection === 'asc' ? '↑' : '↓') :
+                                                '' }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="score in sortedScores" :key="score.phrase + score.number">
+                                            <td>{{ score.score }}</td>
+                                            <td>{{ score.number }}</td>
+                                            <td>{{ score.phrase }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="module">
+            import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+            import app from './vue.js';
+            createApp(app).mount('#main');
+        </script>
+</body>
+
+</html>
